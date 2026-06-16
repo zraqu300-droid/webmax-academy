@@ -1,37 +1,42 @@
 import { neon } from '@neondatabase/serverless';
 
 export default async function handler(request, response) {
-    // إعدادات CORS للسماح بالوصول من الفرونت إند
+    // إعدادات CORS للسماح بالوصول من الفرونت إند (React)
     response.setHeader('Access-Control-Allow-Origin', '*');
     response.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+    // التعامل مع طلبات الـ OPTIONS المسبقة
     if (request.method === 'OPTIONS') return response.status(200).end();
     
-    // تأكد أن هذا الملف مخصص للجلب فقط
+    // التأكد من أن نوع الطلب هو GET فقط
     if (request.method !== 'GET') {
-        return response.status(405).json({ error: 'Method Not Allowed' });
+        return response.status(405).json({ success: false, error: 'Method Not Allowed' });
     }
 
     try {
+        // الاتصال بقاعدة بيانات Neon
         const sql = neon(process.env.DATABASE_URL);
         
-        // الحصول على الفلتر من الرابط (مثلاً: /api/get-data?section=bouh-display)
-        const { section } = request.query;
+        // جلب جميع بيانات الطلاب من جدول students وترتيبهم من الأحدث للتسجيل (id DESC)
+        const rows = await sql`
+            SELECT 
+                id, 
+                name, 
+                age, 
+                phone, 
+                address, 
+                education_level AS "educationLevel", 
+                guardian_phone AS "guardianPhone", 
+                course, 
+                level, 
+                notes,
+                created_at AS "createdAt"
+            FROM students 
+            ORDER BY id DESC;
+        `;
 
-        let rows;
-        if (section) {
-            // جلب البيانات بفلتر القسم
-            rows = await sql`
-                SELECT * FROM posts 
-                WHERE section = ${section} 
-                ORDER BY id DESC;
-            `;
-        } else {
-            // جلب الكل
-            rows = await sql`SELECT * FROM posts ORDER BY id DESC;`;
-        }
-
+        // إرجاع البيانات بنجاح للفرونت إيند
         return response.status(200).json({ 
             success: true, 
             data: rows 
