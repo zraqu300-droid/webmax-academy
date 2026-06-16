@@ -1,49 +1,77 @@
 import { neon } from '@neondatabase/serverless';
 
 export default async function handler(request, response) {
-    // إعدادات CORS
+    // إعدادات CORS للسماح بالاتصال من الواجهة الأمامية
     response.setHeader('Access-Control-Allow-Origin', '*');
     response.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
+    // التعامل مع طلبات الـ OPTIONS المسبقة
     if (request.method === 'OPTIONS') return response.status(200).end();
 
+    // التحقق من نوع الطلب
+    if (request.method !== 'POST') {
+        return response.status(405).json({ success: false, error: 'Method Not Allowed' });
+    }
+
     try {
-        // الاتصال بقاعدة البيانات (يتم داخل الدالة في Neon Serverless)
+        // الاتصال بقاعدة بيانات Neon
         const sql = neon(process.env.DATABASE_URL);
         
-        const body = request.body;
-        let dataToSave = Array.isArray(body) ? body : (body.posts || body.data || [body]);
+        // استخراج البيانات القادمة من جسم الطلب (Request Body)
+        const { 
+            name, 
+            age, 
+            phone, 
+            address, 
+            educationLevel, 
+            guardianPhone, 
+            course, 
+            level, 
+            notes 
+        } = request.body;
 
-        const results = [];
-
-        for (const item of dataToSave) {
-            const content = item.content || item.text || item.body || item.message || JSON.stringify(item); 
-            const media_url = item.media_url || item.url || item.image || item.link || '';
-            const section = item.section || body.section || 'bouh-display';
-            const age = parseInt(item.age || body.age || 0);
-            const name = item.name || body.name || 'User';
-            const p_type = item.type || (media_url ? 'رابط' : 'نصي');
-
-            const res = await sql`
-                INSERT INTO posts (
-                    content, media_url, section, type, age, name
-                ) VALUES (
-                    ${String(content)}, 
-                    ${String(media_url)}, 
-                    ${String(section)}, 
-                    ${String(p_type)}, 
-                    ${age}, 
-                    ${String(name)}
-                ) RETURNING id;
-            `;
-            results.push(res[0].id);
+        // التحقق من وجود الحقول الإجبارية لتفادي أخطاء قاعدة البيانات
+        if (!name || !age || !phone || !address || !educationLevel || !course) {
+            return response.status(400).json({ 
+                success: false, 
+                error: 'الرجاء ملء كافة الحقول الإجبارية المطلوبة (*)' 
+            });
         }
 
+        // تحويل السن إلى رقم صحيح متوافق مع نوع الحقل INT في SQL
+        const parsedAge = parseInt(age, 10);
+
+        // تنفيذ استعلام الإدخال داخل جدول students المتوافق مع حقول الـ SQL بدقة
+        const result = await sql`
+            INSERT INTO students (
+                name, 
+                age, 
+                phone, 
+                address, 
+                education_level, 
+                guardian_phone, 
+                course, 
+                level, 
+                notes
+            ) VALUES (
+                ${String(name)}, 
+                ${parsedAge}, 
+                ${String(phone)}, 
+                ${String(address)}, 
+                ${String(educationLevel)}, 
+                ${guardianPhone ? String(guardianPhone) : null}, 
+                ${String(course)}, 
+                ${level ? String(level) : null}, 
+                ${notes ? String(notes) : null}
+            ) RETURNING id;
+        `;
+
+        // إرجاع استجابة النجاح مع المعرف الفريد للطالب الجديد
         return response.status(200).json({ 
             success: true, 
-            message: "تم الحفظ بنجاح عبر Neon",
-            inserted_ids: results
+            message: "تم تسجيل بيانات الطالب بنجاح عبر Neon",
+            inserted_id: result[0].id
         });
 
     } catch (error) {
