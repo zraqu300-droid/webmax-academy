@@ -104,6 +104,7 @@
                             <th class="p-4">الكورس المطلوب</th>
                             <th class="p-4">المستوى</th>
                             <th class="p-4 max-w-xs truncate">ملاحظات</th>
+                            <th class="p-4 text-center">إجراءات</th>
                         </tr>
                     </thead>
                     <tbody id="table-body" class="divide-y divide-navy-800/50 text-sm">
@@ -117,6 +118,7 @@
 
     <script>
         const GET_DATA_URL = 'https://academyoi.vercel.app/api/get-data';
+        const DELETE_DATA_URL = 'https://academyoi.vercel.app/api/delete-student';
         let allStudents = [];
         let filteredStudents = [];
 
@@ -183,11 +185,40 @@
                     <td class="p-4 text-gray-400 max-w-xs whitespace-pre-wrap break-words text-xs leading-relaxed">
                         ${student.notes || '—'}
                     </td>
+                    <td class="p-4 text-center">
+                        <button onclick="deleteStudent(${student.id})" class="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg border border-red-500/20 transition-colors" title="حذف">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(row);
             });
 
+            // إعادة تشغيل أيقونات لوسيد للصفوف الجديدة المحقونة
+            lucide.createIcons();
             showState('table');
+        }
+
+        // دالة حذف الطالب نهائياً من السيرفر وقاعدة البيانات
+        async function deleteStudent(id) {
+            if (!confirm('هل أنت متأكد من رغبتك في حذف هذا الطالب نهائياً؟')) return;
+
+            try {
+                const response = await fetch(`${DELETE_DATA_URL}?id=${id}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('تم حذف بيانات الطالب بنجاح');
+                    fetchStudentsData(); // إعادة جلب البيانات لتحديث الجدول فوراً
+                } else {
+                    alert('خطأ أثناء الحذف: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Error deleting student:', error);
+                alert('تعذر الاتصال بالسيرفر لإتمام عملية الحذف');
+            }
         }
 
         // دالة الفلترة والبحث الفوري في الخانات
