@@ -1,6 +1,30 @@
 import { useState } from 'react';
 import { Send, CheckCircle } from 'lucide-react';
 
+// استدعاء خدمة الحفظ المخصصة لرابط فيرسل
+const SAVE_API_URL = 'https://academyoi.vercel.app/api/save-student';
+
+const saveStudentData = async (studentData) => {
+  try {
+    const response = await fetch(SAVE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(studentData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`خطأ في السيرفر: ${response.status}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("خطأ أثناء إرسال بيانات الطالب:", error);
+    throw error;
+  }
+};
+
 const initialFormData = {
   name: '',
   age: '',
@@ -26,11 +50,23 @@ function RegistrationForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setIsSubmitting(false);
-    setSubmitSuccess(true);
-    setFormData(initialFormData);
-    setTimeout(() => setSubmitSuccess(false), 5000);
+    
+    try {
+      // استدعاء الخدمة وحفظ البيانات في Neon عبر Vercel
+      const result = await saveStudentData(formData);
+
+      if (result.success) {
+        setSubmitSuccess(true);
+        setFormData(initialFormData);
+        setTimeout(() => setSubmitSuccess(false), 5000);
+      } else {
+        alert(result.error || 'فشل حفظ البيانات، يرجى المحاولة مرة أخرى.');
+      }
+    } catch (error) {
+      alert('حدث خطأ في الاتصال بالسيرفر، تحقق من اتصالك بالإنترنت.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
